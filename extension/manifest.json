@@ -12,7 +12,9 @@
   },
   "permissions": [
     "activeTab",
+    "cookies",
     "downloads",
+    "nativeMessaging",
     "scripting",
     "tabs",
     "webRequest"

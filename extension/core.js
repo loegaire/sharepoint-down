@@ -39,6 +39,84 @@ export function getHeaderValue(headers, wantedName) {
   return match?.value || null;
 }
 
+function getRawQueryParam(url, names) {
+  const parsed = new URL(url);
+  const wanted = new Set(names.map((name) => name.toLowerCase()));
+  const query = parsed.search.startsWith("?") ? parsed.search.slice(1) : parsed.search;
+
+  for (const part of query.split("&")) {
+    const separator = part.indexOf("=");
+    const rawName = separator >= 0 ? part.slice(0, separator) : part;
+    const rawValue = separator >= 0 ? part.slice(separator + 1) : "";
+    if (wanted.has(decodeURIComponent(rawName).toLowerCase()) && rawValue) {
+      return rawValue;
+    }
+  }
+
+  return null;
+}
+
+function decodeQueryValue(value) {
+  return decodeURIComponent(String(value).replace(/\+/g, " "));
+}
+
+function deriveSharePointWebPath(decodedSourcePath) {
+  const parts = decodedSourcePath.split("/").filter(Boolean);
+  if (parts.length < 2) {
+    return null;
+  }
+
+  if (parts[0] === "personal") {
+    return `/personal/${parts[1]}`;
+  }
+
+  if (parts[0] === "sites" || parts[0] === "teams") {
+    return `/${parts[0]}/${parts[1]}`;
+  }
+
+  return null;
+}
+
+export function buildSharePointDownload(pageUrl) {
+  try {
+    const parsed = new URL(pageUrl);
+    const rawSourcePath = getRawQueryParam(pageUrl, ["id", "SourceUrl"]);
+    if (!rawSourcePath) {
+      return null;
+    }
+
+    const decodedSourcePath = decodeQueryValue(rawSourcePath);
+    if (!decodedSourcePath.startsWith("/") || !/\.pdf$/i.test(decodedSourcePath)) {
+      return null;
+    }
+
+    const webPath = deriveSharePointWebPath(decodedSourcePath);
+    if (!webPath) {
+      return null;
+    }
+
+    const filename = cleanFilename(decodedSourcePath.split("/").pop());
+    return {
+      url: `${parsed.origin}${webPath}/_layouts/15/download.aspx?SourceUrl=${rawSourcePath}`,
+      filename
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function buildSharePointCookieHeader(cookies) {
+  const byName = new Map((cookies || []).map((cookie) => [cookie.name, cookie.value]));
+  const fedAuth = byName.get("FedAuth");
+  const rtFa = byName.get("rtFa");
+
+  if (!fedAuth || !rtFa) {
+    return null;
+  }
+
+  return `FedAuth=${fedAuth}; rtFa=${rtFa}`;
+}
+
 export class DownloadArmory {
   constructor({ ttlMs = 90_000 } = {}) {
     this.ttlMs = ttlMs;
