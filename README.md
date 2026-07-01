@@ -5,7 +5,7 @@ OneDrive viewer tab.
 
 ## Demo
 
-[Watch the video demo]([./2026-07-01%2004-17-27.mp4](https://github.com/user-attachments/assets/8246797a-4e0c-471b-a108-aafab8653689))
+https://github.com/user-attachments/assets/8246797a-4e0c-471b-a108-aafab8653689
 
 ## Install
 
