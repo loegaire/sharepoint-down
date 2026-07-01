@@ -19,6 +19,9 @@ cd /home/thinh/sp-automation
 If Chrome asks for new permissions after updates, reload the extension from
 `chrome://extensions` and run the installer again.
 
+The current version must request `cookies` and `nativeMessaging`. If those do
+not appear in Chrome's permission prompt, the old extension is still loaded.
+
 ## Use
 
 1. Log in to SharePoint in your normal Chromium profile.
@@ -35,6 +38,19 @@ downloads.
 If the native helper is not installed, the extension falls back to the older
 browser download/media-token path, which is less reliable for view-only shared
 files.
+
+## Troubleshooting
+
+If clicking the extension appears to do nothing:
+
+1. Open `chrome://extensions`.
+2. Find **SharePoint Opened PDF Downloader**.
+3. Click the circular reload button on that extension card.
+4. Accept the new permissions.
+5. Run `./native/install_native_host.sh` again.
+
+If the extension was not reloaded after version `0.2.0`, Chrome will still be
+running the old code that cannot call the native helper.
 
 ## Legacy Python Reference
 

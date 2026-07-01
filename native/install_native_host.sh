@@ -16,6 +16,7 @@ from pathlib import Path
 extension_path = str(Path(sys.argv[1]).resolve())
 explicit_ids = sys.argv[2:]
 ids = set(explicit_ids)
+missing_permissions = []
 
 preference_paths = [
     Path.home() / ".config/google-chrome/Default/Preferences",
@@ -34,9 +35,18 @@ for preferences_path in preference_paths:
         path = setting.get("path")
         if path and str(Path(path).resolve()) == extension_path:
             ids.add(extension_id)
+            apis = set(setting.get("active_permissions", {}).get("api", []))
+            missing = {"cookies", "nativeMessaging"} - apis
+            if missing:
+                missing_permissions.append((extension_id, sorted(missing)))
 
 for extension_id in sorted(ids):
     print(extension_id)
+
+if missing_permissions:
+    print("__WARN_STALE_PERMISSIONS__", file=sys.stderr)
+    for extension_id, missing in missing_permissions:
+        print(f"{extension_id}: missing {', '.join(missing)}", file=sys.stderr)
 PY
 )
 
@@ -69,3 +79,4 @@ PY
 done
 
 echo "Allowed extension IDs: ${EXTENSION_IDS[*]}"
+echo "If Chrome is missing cookies/nativeMessaging permissions, reload the extension in chrome://extensions and rerun this installer."
