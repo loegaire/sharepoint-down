@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "SharePoint Opened PDF Downloader",
+  "description": "Download the currently opened SharePoint PDF after you click the extension button.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Download opened SharePoint PDF"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "activeTab",
+    "downloads",
+    "scripting",
+    "tabs",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "https://*.sharepoint.com/*",
+    "https://*.sharepoint-df.com/*",
+    "https://*.sharepointonline.com/*",
+    "https://*.officeapps.live.com/*",
+    "https://mediap.svc.ms/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.sharepoint.com/*",
+        "https://*.sharepoint-df.com/*",
+        "https://*.sharepointonline.com/*",
+        "https://*.officeapps.live.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
