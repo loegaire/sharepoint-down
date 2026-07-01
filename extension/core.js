@@ -117,6 +117,97 @@ export function buildSharePointCookieHeader(cookies) {
   return `FedAuth=${fedAuth}; rtFa=${rtFa}`;
 }
 
+export function buildBrowserDownloadOptions({ url, filename, headers = [] }) {
+  const options = {
+    url,
+    filename: cleanFilename(filename),
+    conflictAction: "uniquify"
+  };
+
+  if (headers.length > 0) {
+    options.headers = headers;
+  }
+
+  return options;
+}
+
+const REPLAYABLE_DOWNLOAD_HEADERS = new Map([
+  ["authorization", "Authorization"],
+  ["x-spopactoken", "X-SPOPacToken"]
+]);
+
+export function pickBrowserDownloadHeaders(headers) {
+  const entries = Array.isArray(headers)
+    ? headers.map((header) => [header?.name, header?.value])
+    : Object.entries(headers || {});
+  const result = [];
+  const seen = new Set();
+
+  for (const [rawName, rawValue] of entries) {
+    const lowerName = String(rawName || "").toLowerCase();
+    const canonicalName = REPLAYABLE_DOWNLOAD_HEADERS.get(lowerName);
+    if (!canonicalName || seen.has(lowerName) || rawValue == null || rawValue === "") {
+      continue;
+    }
+
+    seen.add(lowerName);
+    result.push({ name: canonicalName, value: String(rawValue) });
+  }
+
+  return result;
+}
+
+function base64FromText(value) {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(String(value), "utf8").toString("base64");
+  }
+
+  const bytes = new TextEncoder().encode(String(value));
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+function textPrefixFromBase64(value, maxBytes = 512) {
+  const compact = String(value).replace(/\s+/g, "");
+  const prefix = compact.slice(0, Math.ceil(maxBytes / 3) * 4);
+
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(prefix, "base64").toString("utf8");
+  }
+
+  const binary = atob(prefix);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+}
+
+function looksLikeHtmlPayload(payload) {
+  const prefix = String(payload || "").slice(0, 256).trimStart().toLowerCase();
+  return prefix.startsWith("<html") ||
+    prefix.startsWith("<!doctype") ||
+    prefix.startsWith("<script");
+}
+
+export function buildCapturedDownloadUrl({ body, base64Encoded, mimeType = "application/pdf" }) {
+  if (!body) {
+    throw new Error("Captured body is empty");
+  }
+
+  if (base64Encoded) {
+    if (looksLikeHtmlPayload(textPrefixFromBase64(body))) {
+      throw new Error("Captured response is HTML, not the raw file");
+    }
+    return `data:${mimeType};base64,${String(body).replace(/\s+/g, "")}`;
+  }
+
+  if (looksLikeHtmlPayload(body)) {
+    throw new Error("Captured response is HTML, not the raw file");
+  }
+  return `data:${mimeType};base64,${base64FromText(body)}`;
+}
+
 function lowerHeaderMap(headers) {
   const result = {};
   for (const [name, value] of Object.entries(headers || {})) {

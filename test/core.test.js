@@ -3,13 +3,16 @@ import test from "node:test";
 
 import {
   DownloadArmory,
+  buildBrowserDownloadOptions,
+  buildCapturedDownloadUrl,
   buildSharePointCookieHeader,
   buildSharePointDownload,
   chooseCaptureFilename,
   cleanFilename,
   getHeaderValue,
   isCaptureCandidate,
-  isPassthroughRequest
+  isPassthroughRequest,
+  pickBrowserDownloadHeaders
 } from "../extension/core.js";
 
 test("recognizes SharePoint media passthrough requests", () => {
@@ -62,6 +65,60 @@ test("builds cookie header from SharePoint auth cookies only", () => {
 
   assert.equal(buildSharePointCookieHeader(cookies), "FedAuth=fed; rtFa=rt");
   assert.equal(buildSharePointCookieHeader([{ name: "FedAuth", value: "fed" }]), null);
+});
+
+test("builds browser download options without forcing saveAs", () => {
+  const options = buildBrowserDownloadOptions({
+    url: "https://mediap.svc.ms/transform/passthrough?docid=x",
+    filename: "Lecture 01 / Intro.pdf",
+    headers: [{ name: "X-SPOPacToken", value: "token-123" }]
+  });
+
+  assert.deepEqual(options, {
+    url: "https://mediap.svc.ms/transform/passthrough?docid=x",
+    filename: "Lecture_01_Intro.pdf",
+    conflictAction: "uniquify",
+    headers: [{ name: "X-SPOPacToken", value: "token-123" }]
+  });
+  assert.equal(Object.hasOwn(options, "saveAs"), false);
+});
+
+test("builds browser download URL for captured response bodies", () => {
+  assert.equal(
+    buildCapturedDownloadUrl({ body: "JVBERi0xLjQK", base64Encoded: true }),
+    "data:application/pdf;base64,JVBERi0xLjQK"
+  );
+
+  assert.equal(
+    buildCapturedDownloadUrl({ body: "%PDF-1.4\n", base64Encoded: false }),
+    "data:application/pdf;base64,JVBERi0xLjQK"
+  );
+});
+
+test("picks replayable auth headers for browser downloads", () => {
+  assert.deepEqual(
+    pickBrowserDownloadHeaders({
+      Accept: "*/*",
+      "X-SPOPacToken": "token-123",
+      Cookie: "FedAuth=secret",
+      Authorization: "Bearer access-token"
+    }),
+    [
+      { name: "X-SPOPacToken", value: "token-123" },
+      { name: "Authorization", value: "Bearer access-token" }
+    ]
+  );
+});
+
+test("rejects captured html before starting a browser download", () => {
+  assert.throws(
+    () => buildCapturedDownloadUrl({ body: "<!doctype html><title>Denied</title>", base64Encoded: false }),
+    /HTML/
+  );
+  assert.throws(
+    () => buildCapturedDownloadUrl({ body: "PGh0bWw+RGVuaWVkPC9odG1sPg==", base64Encoded: true }),
+    /HTML/
+  );
 });
 
 test("identifies raw viewer response candidates", () => {

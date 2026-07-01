@@ -3,25 +3,21 @@
 Chromium extension for downloading the PDF currently opened in a SharePoint or
 OneDrive viewer tab.
 
+## Demo
+
+[Watch the video demo](./2026-07-01%2004-17-27.mp4)
+
 ## Install
 
 1. Open `chrome://extensions` or `chromium://extensions`.
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
 4. Select this repo's `extension/` directory.
-5. Install the local native helper:
+5. If Chrome asks for new permissions after updates, reload the extension from
+   `chrome://extensions` and accept the prompt.
 
-```bash
-cd /home/thinh/sp-automation
-./native/install_native_host.sh
-```
-
-If Chrome asks for new permissions after updates, reload the extension from
-`chrome://extensions` and run the installer again.
-
-The current version must request `cookies`, `debugger`, and `nativeMessaging`.
-If those do not appear in Chrome's permission prompt, the old extension is still
-loaded.
+The current version must request `debugger`, `downloads`, and `webRequest`.
+It does not need the native helper for normal downloads.
 
 ## Use
 
@@ -29,15 +25,20 @@ loaded.
 2. Open the PDF you want in the SharePoint viewer.
 3. Click the extension toolbar button once.
 4. The extension attaches to the current tab, reloads the viewer, captures the
-   raw PDF-like response body from Chrome's Network debugger, and writes one PDF
-   to `~/Downloads`. The badge should move through `CAP` and end at `OK`.
+   PDF response or its replayable viewer URL, and starts one Chrome browser
+   download. The badge should move through `CAP`, then `DL`, and end at `OK`.
+
+Chrome owns the final save location. If Chrome is configured to ask where to
+save each file, the normal file chooser opens. Otherwise Chrome saves to the
+profile's configured download directory and shows progress in the browser
+download UI.
 
 Click the extension again for the next opened PDF. The extension is idle until
 you click it, so repeated viewer network requests do not trigger repeated
 downloads.
 
-If raw capture fails, the extension tries the older `download.aspx` cookie path.
-It will not save SharePoint access-denied HTML as the target file.
+If raw capture fails, the extension tries the older SharePoint `download.aspx`
+URL through Chrome's download manager.
 
 ## Troubleshooting
 
@@ -47,10 +48,10 @@ If clicking the extension appears to do nothing:
 2. Find **SharePoint Opened PDF Downloader**.
 3. Click the circular reload button on that extension card.
 4. Accept the new permissions.
-5. Run `./native/install_native_host.sh` again.
+5. Make sure the extension version shown by Chrome is `0.4.0` or newer.
 
-If the extension was not reloaded after version `0.3.0`, Chrome will still be
-running older code that cannot capture raw viewer responses.
+If the extension was not reloaded after version `0.4.0`, Chrome may still be
+running older code that writes directly to `~/Downloads`.
 
 ## Legacy Python Reference
 
