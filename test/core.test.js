@@ -3,10 +3,12 @@ import test from "node:test";
 
 import {
   DownloadArmory,
-  buildSharePointDownload,
   buildSharePointCookieHeader,
+  buildSharePointDownload,
+  chooseCaptureFilename,
   cleanFilename,
   getHeaderValue,
+  isCaptureCandidate,
   isPassthroughRequest
 } from "../extension/core.js";
 
@@ -60,6 +62,34 @@ test("builds cookie header from SharePoint auth cookies only", () => {
 
   assert.equal(buildSharePointCookieHeader(cookies), "FedAuth=fed; rtFa=rt");
   assert.equal(buildSharePointCookieHeader([{ name: "FedAuth", value: "fed" }]), null);
+});
+
+test("identifies raw viewer response candidates", () => {
+  assert.equal(isCaptureCandidate({
+    url: "https://mediap.svc.ms/transform/passthrough?docid=x",
+    mimeType: "application/octet-stream",
+    headers: {}
+  }), true);
+  assert.equal(isCaptureCandidate({
+    url: "https://husteduvn-my.sharepoint.com/anything",
+    mimeType: "application/pdf",
+    headers: {}
+  }), true);
+  assert.equal(isCaptureCandidate({
+    url: "https://husteduvn-my.sharepoint.com/error",
+    mimeType: "text/html",
+    headers: { "content-type": "text/html" }
+  }), false);
+});
+
+test("chooses capture filename from current URL before generic response URL", () => {
+  const pageUrl = "https://husteduvn-my.sharepoint.com/shared?id=%2Fpersonal%2Fdat%2FDocuments%2FDatabase%20-%20cu%E1%BB%91i%20k%C3%AC%2020191.pdf";
+  const responseUrl = "https://mediap.svc.ms/transform/passthrough?docid=x";
+
+  assert.equal(
+    chooseCaptureFilename({ pageUrl, responseUrl, fallbackTitle: "Viewer" }),
+    "Database_-_cuối_kì_20191.pdf"
+  );
 });
 
 test("allows one download claim per extension click", () => {

@@ -1,5 +1,7 @@
 import importlib.util
 from pathlib import Path
+import os
+import tempfile
 import unittest
 
 
@@ -37,6 +39,27 @@ class NativeHostTest(unittest.TestCase):
                 "filename": "a.pdf",
                 "cookieHeader": "FedAuth=fed",
             })
+
+    def test_writes_captured_base64_file_to_downloads(self):
+        old_home = os.environ.get("HOME")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["HOME"] = tmpdir
+            try:
+                result = host.write_captured_file({
+                    "mode": "writeCaptured",
+                    "filename": "captured.pdf",
+                    "body": "JVBERi0xLjQK",
+                    "base64Encoded": True,
+                })
+            finally:
+                if old_home is None:
+                    os.environ.pop("HOME", None)
+                else:
+                    os.environ["HOME"] = old_home
+
+            output_path = Path(result["path"])
+            self.assertEqual(output_path.name, "captured.pdf")
+            self.assertEqual(output_path.read_bytes(), b"%PDF-1.4\n")
 
 
 if __name__ == "__main__":

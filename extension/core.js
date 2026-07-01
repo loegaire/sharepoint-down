@@ -117,6 +117,68 @@ export function buildSharePointCookieHeader(cookies) {
   return `FedAuth=${fedAuth}; rtFa=${rtFa}`;
 }
 
+function lowerHeaderMap(headers) {
+  const result = {};
+  for (const [name, value] of Object.entries(headers || {})) {
+    result[name.toLowerCase()] = String(value || "").toLowerCase();
+  }
+  return result;
+}
+
+export function isCaptureCandidate(response) {
+  const url = String(response?.url || "").toLowerCase();
+  const mimeType = String(response?.mimeType || "").toLowerCase();
+  const headers = lowerHeaderMap(response?.headers);
+  const contentType = headers["content-type"] || mimeType;
+
+  if (contentType.includes("text/html") || contentType.includes("application/json")) {
+    return false;
+  }
+
+  return (
+    mimeType.includes("application/pdf") ||
+    contentType.includes("application/pdf") ||
+    url.includes("mediap.svc.ms/transform/passthrough") ||
+    url.includes("/_layouts/15/download.aspx") ||
+    url.includes("/_api/") && url.includes("$value")
+  );
+}
+
+function filenameFromUrlParam(url) {
+  try {
+    const rawSourcePath = getRawQueryParam(url, ["id", "SourceUrl"]);
+    if (!rawSourcePath) {
+      return null;
+    }
+    const decodedSourcePath = decodeQueryValue(rawSourcePath);
+    if (!/\.pdf$/i.test(decodedSourcePath)) {
+      return null;
+    }
+    return cleanFilename(decodedSourcePath.split("/").pop());
+  } catch {
+    return null;
+  }
+}
+
+function filenameFromPath(url) {
+  try {
+    const parsed = new URL(url);
+    const decoded = decodeURIComponent(parsed.pathname.split("/").pop() || "");
+    return /\.pdf$/i.test(decoded) ? cleanFilename(decoded) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function chooseCaptureFilename({ pageUrl, responseUrl, fallbackTitle }) {
+  return (
+    filenameFromUrlParam(pageUrl) ||
+    filenameFromUrlParam(responseUrl) ||
+    filenameFromPath(responseUrl) ||
+    cleanFilename(fallbackTitle)
+  );
+}
+
 export class DownloadArmory {
   constructor({ ttlMs = 90_000 } = {}) {
     this.ttlMs = ttlMs;

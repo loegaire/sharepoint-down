@@ -7,6 +7,7 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
+import base64
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -91,12 +92,43 @@ def download_file(message):
     return {"ok": True, "path": str(destination), "bytes": len(payload)}
 
 
+def write_captured_file(message):
+    filename = sanitize_filename(message.get("filename"))
+    body = str(message.get("body") or "")
+    if not body:
+        raise ValueError("Captured body is empty")
+
+    if message.get("base64Encoded"):
+        payload = base64.b64decode(body)
+    else:
+        payload = body.encode("utf-8")
+
+    if not payload:
+        raise ValueError("Captured file is empty")
+    if reject_html(payload):
+        raise ValueError("Captured response is HTML, not the raw file")
+
+    downloads_dir = Path.home() / "Downloads"
+    downloads_dir.mkdir(parents=True, exist_ok=True)
+    destination = downloads_dir / filename
+
+    with tempfile.NamedTemporaryFile("wb", delete=False, dir=str(downloads_dir), prefix=".sp-capture-") as handle:
+        handle.write(payload)
+        temp_path = Path(handle.name)
+
+    os.replace(temp_path, destination)
+    return {"ok": True, "path": str(destination), "bytes": len(payload)}
+
+
 def main():
     try:
         message = read_message()
         if message is None:
             return
-        write_message(download_file(message))
+        if message.get("mode") == "writeCaptured":
+            write_message(write_captured_file(message))
+        else:
+            write_message(download_file(message))
     except urllib.error.HTTPError as error:
         write_message({"ok": False, "error": f"HTTP {error.code}"})
     except Exception as error:

@@ -36,7 +36,7 @@ for preferences_path in preference_paths:
         if path and str(Path(path).resolve()) == extension_path:
             ids.add(extension_id)
             apis = set(setting.get("active_permissions", {}).get("api", []))
-            missing = {"cookies", "nativeMessaging"} - apis
+            missing = {"cookies", "debugger", "nativeMessaging"} - apis
             if missing:
                 missing_permissions.append((extension_id, sorted(missing)))
 
@@ -79,4 +79,4 @@ PY
 done
 
 echo "Allowed extension IDs: ${EXTENSION_IDS[*]}"
-echo "If Chrome is missing cookies/nativeMessaging permissions, reload the extension in chrome://extensions and rerun this installer."
+echo "If Chrome is missing cookies/debugger/nativeMessaging permissions, reload the extension in chrome://extensions and rerun this installer."
